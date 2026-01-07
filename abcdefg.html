@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Login with Google</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            background: #0f0f1e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #particles-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+        }
+        .login-container {
+            position: relative;
+            z-index: 2;
+            width: 380px;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+        h1 {
+            color: white;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        .google-btn {
+            margin-top: 20px;
+        }
+        #user-info {
+            color: white;
+            margin-top: 30px;
+            display: none;
+        }
+        #user-info img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="particles-canvas"></canvas>
+
+<div class="login-container">
+    <h1>Welcome</h1>
+    <div id="google-btn" class="google-btn"></div>
+    
+    <div id="user-info">
+        <img id="user-pic" src="" alt="Profile">
+        <h2 id="user-name"></h2>
+        <p id="user-email"></p>
+        <button onclick="google.accounts.id.revoke(promptCredential.credential, () => { location.reload(); })">
+            Sign Out
+        </button>
+    </div>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+    // Google Sign-In
+    let promptCredential;
+    
+    function handleCredentialResponse(response) {
+        const data = parseJwt(response.credential);
+        document.getElementById('google-btn').style.display = 'none';
+        document.getElementById('user-info').style.display = 'block';
+        document.getElementById('user-name').textContent = data.name;
+        document.getElementById('user-email').textContent = data.email;
+        document.getElementById('user-pic').src = data.picture;
+        promptCredential = response;
+    }
+
+    function parseJwt(token) {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => 
+            '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+        return JSON.parse(jsonPayload);
+    }
+
+    window.onload = function () {
+        google.accounts.id.initialize({
+            client_id: '1040343841242-lq81pgdt2go1ete2hfligpcl4fqkj7gm.apps.googleusercontent.com',
+            callback: handleCredentialResponse,
+            auto_select: false
+        });
+        
+        google.accounts.id.renderButton(
+            document.getElementById('google-btn'),
+            { theme: 'outline', size: 'large', width: '300', text: 'signin_with' }
+        );
+        
+        google.accounts.id.prompt();
+    };
+
+    // Particle Network Background
+    const canvas = document.getElementById('particles-canvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    let mouse = { x: null, y: null, radius: 150 };
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    window.addEventListener('mousemove', (e) => {
+        mouse.x = e.x;
+        mouse.y = e.y;
+    });
+
+    class Particle {
+        constructor() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.size = Math.random() * 3 + 1;
+            this.speedX = Math.random() * 1 - 0.5;
+            this.speedY = Math.random() * 1 - 0.5;
+        }
+        update() {
+            this.x += this.speedX;
+            this.y += this.speedY;
+            if (this.x > canvas.width || this.x < 0) this.speedX *= -1;
+            if (this.y > canvas.height || this.y < 0) this.speedY *= -1;
+        }
+        draw() {
+            ctx.fillStyle = 'rgba(100, 200, 255, 0.8)';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    function initParticles() {
+        particles = [];
+        const num = window.innerWidth < 768 ? 50 : 100;
+        for (let i = 0; i < num; i++) {
+            particles.push(new Particle());
+        }
+    }
+    initParticles();
+
+    function connectParticles() {
+        for (let a = 0; a < particles.length; a++) {
+            for (let b = a + 1; b < particles.length; b++) {
+                const dx = particles[a].x - particles[b].x;
+                const dy = particles[a].y - particles[b].y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < 120) {
+                    ctx.strokeStyle = `rgba(100, 200, 255, ${1 - distance / 120})`;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(particles[a].x, particles[a].y);
+                    ctx.lineTo(particles[b].x, particles[b].y);
+                    ctx.stroke();
+                }
+            }
+        }
+        
+        // Mouse interaction
+        if (mouse.x && mouse.y) {
+            particles.forEach(p => {
+                const dx = p.x - mouse.x;
+                const dy = p.y - mouse.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < mouse.radius) {
+                    ctx.strokeStyle = `rgba(100, 200, 255, ${1 - distance / mouse.radius})`;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(p.x, p.y);
+                    ctx.lineTo(mouse.x, mouse.y);
+                    ctx.stroke();
+                }
+            });
+        }
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+            p.update();
+            p.draw();
+        });
+        connectParticles();
+        requestAnimationFrame(animate);
+    }
+    animate();
+</script>
+
+</body>
+</html>
